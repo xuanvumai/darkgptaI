@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080711">
+  <title>DarkGPT AI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-icon">✦</div>
+        <div>
+          <h2>DarkGPT AI</h2>
+          <small>AI Coding Assistant</small>
+        </div>
+      </div>
+
+      <button class="new-chat" id="newChat">＋ Cuộc trò chuyện mới</button>
+
+      <div class="nav-title">MENU</div>
+      <button class="nav active" data-view="chat">◈ Chat AI</button>
+      <button class="nav" data-view="code">⌘ Code Assistant</button>
+      <button class="nav" data-view="history">◷ Lịch sử chat</button>
+
+      <div class="nav-title">CÔNG CỤ</div>
+      <button class="nav quick" data-prompt="Hãy tạo một project C++ hoàn chỉnh và giải thích cấu trúc từng file.">C++ Project</button>
+      <button class="nav quick" data-prompt="Hãy phân tích đoạn code tôi gửi, tìm lỗi và sửa hoàn chỉnh.">Debug Code</button>
+      <button class="nav quick" data-prompt="Hãy hướng dẫn phân tích kiến trúc client-server của một game trong môi trường kiểm thử.">Game Analysis</button>
+      <button class="nav quick" data-prompt="Hãy tạo giao diện mod menu cho game demo của tôi bằng HTML, CSS và JavaScript.">Mod UI</button>
+
+      <div class="sidebar-bottom">
+        <div class="user-card">
+          <div class="avatar">AI</div>
+          <div>
+            <strong>DarkGPT User</strong>
+            <small>Code workspace</small>
+          </div>
+        </div>
+    </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button id="menuBtn" class="icon-btn">☰</button>
+        <span class="top-title">DarkGPT <span>AI</span></span>
+        <div class="status"><i></i> Online</div>
+      </header>
+
+      <section class="welcome" id="welcome">
+        <div class="welcome-icon">✦</div>
+        <h1>Xin chào, lập trình viên</h1>
+        <p>Hôm nay bạn muốn xây dựng điều gì?</p>
+
+        <div class="chips">
+          <button data-prompt="Viết một project Python hoàn chỉnh.">Python</button>
+          <button data-prompt="Viết project C++ hoàn chỉnh.">C++</button>
+          <button data-prompt="Viết ứng dụng Swift cho iPhone.">Swift iOS</button>
+          <button data-prompt="Phân tích code và tìm lỗi.">Debug</button>
+        </div>
+      </section>
+
+      <section class="messages" id="messages"></section>
+
+      <div class="composer-area">
+        <div class="composer">
+          <textarea id="input" rows="1" placeholder="Nhập yêu cầu viết code..."></textarea>
+          <button id="sendBtn" class="send">➤</button>
+        </div>
+        <div class="composer-note">DarkGPT AI · Code assistant</div>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
