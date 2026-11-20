@@ -1,149 +1,236 @@
-const input = document.getElementById("input");
-const sendBtn = document.getElementById("sendBtn");
-const messagesEl = document.getElementById("messages");
-const welcome = document.getElementById("welcome");
-const sidebar = document.getElementById("sidebar");
+"use strict";
 
-let messages = [];
-let busy = false;
+const $ = (id) => document.getElementById(id);
 
-function addMessage(role, content) {
-  const item = document.createElement("div");
-  item.className = `message ${role}`;
+const input = $("input");
+const sendBtn = $("sendBtn");
+const messagesEl = $("messages");
+const welcome = $("welcome");
+const newChatBtn = $("newChat");
+const menuBtn = $("menuBtn");
+const sidebar = $("sidebar");
 
-  const bubble = document.createElement("div");
-  bubble.className = "bubble";
+let chatMessages = [];
+let isSending = false;
 
-  // Render as plain text to avoid injecting untrusted HTML.
-  bubble.textContent = content;
+const SYSTEM_MESSAGE = {
+  role: "system",
+  content: "Bạn là AI trợ lý lập trình. Trả lời bằng tiếng Việt. Khi người dùng yêu cầu viết code, hãy viết code đầy đủ, rõ tên file, không tự ý bỏ phần quan trọng và hướng dẫn chạy."
+};
 
-  item.appendChild(bubble);
-  messagesEl.appendChild(item);
-
+function scrollToBottom() {
+  window.scrollTo(0, document.body.scrollHeight);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function saveHistory() {
-  try {
-    localStorage.setItem("darkgpt-history", JSON.stringify(messages));
-  } catch {}
-}
+function createBubble(role, content) {
+  const row = document.createElement("div");
+  row.className = `message-row ${role === "user" ? "user-row" : "ai-row"}`;
 
-function loadHistory() {
-  try {
-    const saved = JSON.parse(localStorage.getItem("darkgpt-history") || "[]");
+  const bubble = document.createElement("div");
+  bubble.className = `message-bubble ${role === "user" ? "user-bubble" : "ai-bubble"}`;
 
-    if (Array.isArray(saved)) {
-      messages = saved;
-      messages.forEach(m => addMessage(m.role, m.content));
+  // Hiển thị code block an toàn, không chạy HTML do AI trả về
+  const parts = String(content).split(/```/);
+
+  parts.forEach((part, index) => {
+    if (!part) return;
+
+    if (index % 2 === 1) {
+      const code = document.createElement("pre");
+      code.className = "code-block";
+
+      const codeEl = document.createElement("code");
+      codeEl.textContent = part.replace(/^[a-zA-Z0-9+#.-]*\n/, "");
+
+      code.appendChild(codeEl);
+      bubble.appendChild(code);
+    } else {
+      const text = document.createElement("div");
+      text.className = "message-text";
+      text.textContent = part;
+      bubble.appendChild(text);
     }
-  } catch {}
+  });
+
+  row.appendChild(bubble);
+  messagesEl.appendChild(row);
+
+  scrollToBottom();
+  return row;
 }
 
-function newChat() {
-  messages = [];
-  messagesEl.replaceChildren();
-  welcome.style.display = "block";
-  localStorage.removeItem("darkgpt-history");
-  input.focus();
+function showTyping() {
+  const row = document.createElement("div");
+  row.className = "message-row ai-row";
+  row.id = "typingIndicator";
+
+  const bubble = document.createElement("div");
+  bubble.className = "message-bubble ai-bubble";
+  bubble.textContent = "AI đang suy nghĩ…";
+
+  row.appendChild(bubble);
+  messagesEl.appendChild(row);
+  scrollToBottom();
+}
+
+function removeTyping() {
+  const el = $("typingIndicator");
+  if (el) el.remove();
+}
+
+function setSending(value) {
+  isSending = value;
+  sendBtn.disabled = value;
+  sendBtn.textContent = value ? "…" : "➤";
 }
 
 async function sendMessage(text) {
-  if (busy || !text.trim()) return;
+  text = String(text || "").trim();
 
-  busy = true;
-  sendBtn.disabled = true;
+  if (!text || isSending) return;
 
-  const content = text.trim();
-
-  welcome.style.display = "none";
-
-  messages.push({
+  chatMessages.push({
     role: "user",
-    content
+    content: text
   });
 
-  addMessage("user", content);
-  saveHistory();
+  createBubble("user", text);
 
   input.value = "";
+  input.style.height = "auto";
 
-  const loading = document.createElement("div");
-  loading.className = "message assistant";
+  if (welcome) welcome.style.display = "none";
 
-  const loadingBubble = document.createElement("div");
-  loadingBubble.className = "bubble";
-  loadingBubble.textContent = "AI đang suy nghĩ...";
-  loading.appendChild(loadingBubble);
-
-  messagesEl.appendChild(loading);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  setSending(true);
+  showTyping();
 
   try {
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        messages: messages.slice(-30)
-      })
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 70000);
 
-    const data = await response.json();
+    let response;
 
-    loading.remove();
-
-    if (!response.ok) {
-      throw new Error(data.error || "API error");
+    try {
+      response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          messages: chatMessages
+        }),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
     }
 
-    const reply = data.reply || "AI không trả lời.";
+    const data = await response.json().catch(() => ({}));
 
-    messages.push({
+    removeTyping();
+
+    if (!response.ok) {
+      throw new Error(data.error || `Lỗi HTTP ${response.status}`);
+    }
+
+    if (!data.reply || typeof data.reply !== "string") {
+      throw new Error("Server không gửi nội dung trả lời.");
+    }
+
+    chatMessages.push({
       role: "assistant",
-      content: reply
+      content: data.reply
     });
 
-    addMessage("assistant", reply);
-    saveHistory();
+    createBubble("assistant", data.reply);
+
   } catch (error) {
-    loadingBubble.textContent = "Lỗi: " + error.message;
+    removeTyping();
+
+    const errorText = error.name === "AbortError"
+      ? "AI phản hồi quá lâu. Bạn hãy thử lại."
+      : error.message || "Không kết nối được máy chủ AI.";
+
+    createBubble("assistant", "⚠️ " + errorText);
+
+    console.error("Chat error:", error);
+
   } finally {
-    busy = false;
-    sendBtn.disabled = false;
+    setSending(false);
     input.focus();
   }
 }
 
+// Nút gửi
 sendBtn.addEventListener("click", () => {
   sendMessage(input.value);
 });
 
-input.addEventListener("keydown", event => {
+// Enter để gửi, Shift + Enter để xuống dòng
+input.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
     sendMessage(input.value);
   }
 });
 
-document.getElementById("newChat").addEventListener("click", newChat);
-
-document.getElementById("menuBtn").addEventListener("click", () => {
-  sidebar.classList.toggle("open");
+// Tự điều chỉnh chiều cao ô nhập
+input.addEventListener("input", () => {
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 180) + "px";
 });
 
-document.querySelectorAll("[data-prompt]").forEach(button => {
+// Prompt gợi ý trong giao diện
+document.querySelectorAll("[data-prompt]").forEach((button) => {
   button.addEventListener("click", () => {
-    input.value = button.dataset.prompt;
+    const prompt = button.dataset.prompt || "";
+    sendMessage(prompt);
+  });
+});
+
+// Tạo cuộc trò chuyện mới
+if (newChatBtn) {
+  newChatBtn.addEventListener("click", () => {
+    chatMessages = [];
+    messagesEl.innerHTML = "";
+
+    if (welcome) welcome.style.display = "";
+
+    input.value = "";
+    input.style.height = "auto";
     input.focus();
-  });
-});
 
-document.querySelectorAll(".chips button").forEach(button => {
+    if (sidebar) sidebar.classList.remove("open");
+  });
+}
+
+// Menu mobile
+if (menuBtn && sidebar) {
+  menuBtn.addEventListener("click", () => {
+    sidebar.classList.toggle("open");
+  });
+}
+
+// Menu navigation
+document.querySelectorAll("[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
-    sendMessage(button.dataset.prompt);
+    document.querySelectorAll("[data-view]").forEach((item) => {
+      item.classList.remove("active");
+    });
+
+    button.classList.add("active");
+
+    if (sidebar) sidebar.classList.remove("open");
   });
 });
 
-loadHistory();
+// Kiểm tra server khi mở web
+fetch("/api/health")
+  .then((res) => res.json())
+  .then((data) => {
+    console.log("DarkGPT server:", data);
+  })
+  .catch((err) => {
+    console.error("Server health check failed:", err);
+  });
